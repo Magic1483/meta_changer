@@ -106,14 +106,20 @@ def AddPresets(presets:Dict[str,dict]):
 phone_fields = {field_name: {"type": "string"} 
                 for field_name in Phone.__annotations__}
 
-AddPresets.declaration.inputSchema["properties"]["presets"] = {
+mcp._tool_manager._tools['AddPresets'].parameters = {
     "type": "object",
-    "additionalProperties": {
-        "type": "object",
-        "properties": phone_fields,
-        "required": list(Phone.__annotations__.keys())
+    "properties": {
+        "presets": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": phone_fields,
+                "required": list(Phone.__annotations__.keys())
+            },
+            "description": "A dictionary mapping unique configuration names to phone specifications."
+        }
     },
-    "description": "A dictionary mapping unique names to phone specifications."
+    "required": ["presets"]
 }
 
 
