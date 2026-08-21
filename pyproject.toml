@@ -1,0 +1,20 @@
+[project]
+name = "meta_changer"
+version = "0.1.0"
+description = "CLI tool to change EXIF metadata via MCP"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp[cli]>=2.0.0",
+    "pyexiftool>=0.5.6",
+]
+
+[project.scripts]
+meta-changer = "meta_changer.__main__:main"
+
+[build-system]
+requires = ["setuptools >=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+"meta_changer" = ["presets.csv"]
