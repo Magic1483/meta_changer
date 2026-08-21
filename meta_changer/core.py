@@ -5,8 +5,15 @@ from mcp.server import MCPServer
 import exiftool
 from dataclasses import  astuple, dataclass
 from csv import DictReader
-import csv
+from importlib import resources
+import csv,os,shutil
 
+
+if os.name == "nt":
+    CONFIG_DIR = Path(os.getenv("APPDATA")) / "meta_changer"
+else:
+    CONFIG_DIR = Path.home() / ".config" / "meta_changer"
+CONFIG_DIR.mkdir(parents=True,exist_ok=True)
 
 @dataclass
 class Phone:
@@ -18,8 +25,12 @@ class Phone:
     FocalLength   :str
     FocalLength35 :str
 
-CSV_PATH = Path(__file__).parent / "presets.csv"
+CSV_PATH = CONFIG_DIR / "presets.csv"
 PRESETS: Dict[str,Phone] = {}
+
+if not CSV_PATH.exists():
+    default_csv = str(resources.files(__package__) / "presets.csv")
+    shutil.copyfile(default_csv,CSV_PATH)
 
 def load_presets():
     global PRESETS
@@ -32,6 +43,20 @@ def load_presets():
 def get_presets():
     return list(PRESETS.keys())
 
+def export_presets():
+    return PRESETS
+
+def set_presets(presets:Dict[str,Phone]):
+    global PRESETS
+    PRESETS = presets
+    fieldnames = ["Preset",*get_presets()]
+    rows = [[preset,*astuple(phone)] for preset,phone in presets.items()]
+    
+    with CSV_PATH.open('w',encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(fieldnames)
+        writer.writerows(rows)
+
 def add_preset(preset_name: str, phone: Phone):
     row_values = [preset_name, *astuple(phone)]
     print(row_values)
@@ -39,7 +64,6 @@ def add_preset(preset_name: str, phone: Phone):
         writer = csv.writer(f)
         writer.writerow(row_values)
 
-    
 def set_metadata(file_paths:List[str],phone_preset:str):
     global PRESETS
 
