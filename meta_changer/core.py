@@ -36,9 +36,8 @@ def load_presets():
     global PRESETS
     with CSV_PATH.open('r',encoding="utf-8") as f:
         for d in  DictReader(f.readlines()):
-            preset = d['Preset'] 
-            del d['Preset']
-            PRESETS[preset] = Phone(*d)
+            preset = d.pop("Preset")
+            PRESETS[preset] = Phone(**d)
 
 def get_presets():
     return list(PRESETS.keys())
@@ -46,23 +45,31 @@ def get_presets():
 def export_presets():
     return PRESETS
 
+def add_presets(presets: Dict[str,Phone]):
+    """Append new preset, rewrite if exists"""
+    global PRESETS
+
+    rows = []
+    for name,p in presets.items():
+        PRESETS[name] = p
+        rows.append([name, *astuple(p)])
+
+    with CSV_PATH.open("a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerows(rows)
+    
 def set_presets(presets:Dict[str,Phone]):
+    """ Rewrite all presets """
+
     global PRESETS
     PRESETS = presets
-    fieldnames = ["Preset",*get_presets()]
-    rows = [[preset,*astuple(phone)] for preset,phone in presets.items()]
+    fieldnames = ["Preset", "Make", "Model", "Software", 
+                  "LensModel", "FNumber", "FocalLength", "FocalLength35"]
     
     with CSV_PATH.open('w',encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow(fieldnames)
-        writer.writerows(rows)
-
-def add_preset(preset_name: str, phone: Phone):
-    row_values = [preset_name, *astuple(phone)]
-    print(row_values)
-    with CSV_PATH.open("a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(row_values)
+    add_presets(presets)
 
 def set_metadata(file_paths:List[str],phone_preset:str):
     global PRESETS
@@ -78,17 +85,41 @@ def set_metadata(file_paths:List[str],phone_preset:str):
             params=["-P","-overwrite_original"]
             )
 
+load_presets()
 
-
+# MCP server stdio
 mcp = MCPServer("MetaChangeTool")
 @mcp.tool()
 def SetMetadata(file_paths:List[str],phone_preset:str):
     """set metadata for target image"""
     return set_metadata(file_paths,phone_preset)
 
-@mcp.resource("presets")
-def Presets() -> List[str]:
-    """return list of available presets"""
-    return get_presets()
+@mcp.tool()
+def AddPresets(presets:Dict[str,dict]):
+    """Register multiple camera metadata presets in bulk."""
+    proc_presets:Dict[str,Phone] = {}
+    for name,raw in presets.items():
+        proc_presets[name] = Phone(**raw)
+    add_presets(proc_presets)
+    return f"Successfully appended {len(presets)} new presets to registry."
 
-load_presets()
+phone_fields = {field_name: {"type": "string"} 
+                for field_name in Phone.__annotations__}
+
+AddPresets.declaration.inputSchema["properties"]["presets"] = {
+    "type": "object",
+    "additionalProperties": {
+        "type": "object",
+        "properties": phone_fields,
+        "required": list(Phone.__annotations__.keys())
+    },
+    "description": "A dictionary mapping unique names to phone specifications."
+}
+
+
+
+@mcp.resource("presets://list")
+def GetPresets() -> str:
+    """Return a plain text newline-delimited list of all available configuration presets."""
+    return "\n".join(get_presets())
+
