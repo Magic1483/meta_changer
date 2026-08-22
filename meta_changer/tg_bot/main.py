@@ -24,7 +24,7 @@ DOWNLOAD_DIR = Path("files")
 USER_LOCKS:defaultdict[str,asyncio.Lock] = defaultdict(asyncio.Lock)
 
 dp = Dispatcher()
-BOT:Bot  = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN_V2))
+BOT:Bot  = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 class BotState(StatesGroup):
     wait_for_preset = State()
@@ -51,7 +51,8 @@ async def process_preset(callback:CallbackQuery, state: FSMContext):
     await state.update_data(preset=val)
     await state.set_state(BotState.upload_archive)
     await callback.message.edit_text(
-        f"Selected preset: {val}\nUpload zip archive with .jpg images:")
+        f"Selected preset: <b>{val}</b>\nUpload zip archive with <code>.jpg</code> images:"
+    )
 
 @dp.message(BotState.upload_archive , F.document)
 async def cmd_download_arch(msg:Message,state:FSMContext):
