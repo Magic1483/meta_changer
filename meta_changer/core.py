@@ -1,3 +1,5 @@
+from datetime import timedelta
+import datetime
 from pathlib import Path
 from typing import Dict, List
 
@@ -9,6 +11,7 @@ import csv,os,shutil
 import glob
 from PIL import Image
 import random
+from datetime import datetime
 
 if os.name == "nt":
     CONFIG_DIR = Path(os.getenv("APPDATA")) / "meta_changer"
@@ -93,16 +96,28 @@ def png_to_jpg(file_paths:List[str]) -> int:
             continue
 
     return processed
-
-def generate_random_shot_data() -> dict:
+def generate_random_shot_data(shot_time: datetime, tz_offset: str = "+03:00") -> dict:
     return {
+        # Display & Engine Standards
+        "ColorSpace": 1,                     # Force sRGB
+        "Orientation": 6,                    # Standard portrait tag
+        "ExifVersion": "0232",
+        
+        # Exposure & Hardware Mechanics
         "ISO": random.choice([50, 64, 80, 100, 125, 160, 200]),
         "ExposureTime": random.choice(["1/60", "1/120", "1/250", "1/500", "1/1000"]),
         "ExposureBiasValue": random.choice([0, 0, 0, -0.33, 0.33]),
+        "BrightnessValue": round(random.uniform(2.0, 6.5), 2),
+        "MeteringMode": 5,                   # Pattern metering
+        "Flash": 16,                         # Off, Did not fire
+        
+        # Timestamps & Timezones
         "SubSecTimeOriginal": f"{random.randint(0, 999):03d}",
         "SubSecTimeDigitized": f"{random.randint(0, 999):03d}",
-        # "DateTimeOriginal": base_time.strftime("%Y:%m:%d %H:%M:%S"),
-        "BrightnessValue": round(random.uniform(2.0, 6.5), 2),
+        "DateTimeOriginal": shot_time.strftime("%Y:%m:%d %H:%M:%S"),
+        "CreateDate": shot_time.strftime("%Y:%m:%d %H:%M:%S"),
+        # "OffsetTimeOriginal": tz_offset,
+        # "OffsetTimeDigitized": tz_offset,
     }
 
 def set_metadata(patterns:List[str],phone_preset:str) -> int:
@@ -114,26 +129,53 @@ def set_metadata(patterns:List[str],phone_preset:str) -> int:
     
     file_paths: set[Path] = set()
     for pattern in patterns:
-        for m in  glob.glob(pattern,recursive=True):
+        for m in glob.glob(pattern, recursive=True):
             p = Path(m)
-            if p.is_file():
+            if p.is_file() and p.suffix.lower() in ('.jpg', '.jpeg'):
                 file_paths.add(p.resolve())
     
     if not file_paths:
         return 0
     
-    phone = PRESETS[phone_preset]
-    params = asdict(phone)
-    params.update(generate_random_shot_data())
+    sorted_files = sorted(list(file_paths))
+    phone_base = asdict(PRESETS[phone_preset])
+
     with exiftool.ExifToolHelper() as et:
-        et.set_tags(
-            files=[str(p) for p in file_paths],
-            tags=params,
-            params=["-P","-overwrite_original"]
-            )
+        base_time = datetime.now() - timedelta(minutes=len(sorted_files) * 2)
+        
+        for p in sorted_files:
+            
+            existing_meta = et.get_tags(str(p), tags=["EXIF:DateTimeOriginal"])
+            existing_time = existing_meta[0].get("EXIF:DateTimeOriginal") if existing_meta else None
+
+            if existing_time:
+                shot_time = datetime.strptime(existing_time, "%Y:%m:%d %H:%M:%S")
+            else:
+                base_time += timedelta(seconds=random.randint(15, 90))
+                shot_time = base_time
+
+            file_tags = phone_base.copy()
+            file_tags.update(generate_random_shot_data(shot_time))
+            formatted_tags = {
+                (k if k.startswith("EXIF:") else f"EXIF:{k}"): v 
+                for k, v in file_tags.items()}
+
+            et.set_tags(
+                files=str(p),
+                tags=formatted_tags,
+                params=[
+                    "-P", 
+                    "-overwrite_original", 
+                    "-jfif:all=", 
+                    "-xmp:all=", 
+                    "-XMPToolkit=",      
+                    "-exifbyteorder=ii"
+                ])
     return len(file_paths)
 
 load_presets()
 
 
 
+if __name__ == '__main__':
+    set_metadata(['./test.jpg'],'S24')
