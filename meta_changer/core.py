@@ -100,7 +100,6 @@ def generate_random_shot_data(shot_time: datetime, tz_offset: str = "+03:00") ->
     return {
         # Display & Engine Standards
         "ColorSpace": 1,                     # Force sRGB
-        "Orientation": 6,                    # Standard portrait tag
         "ExifVersion": "0232",
         
         # Exposure & Hardware Mechanics
@@ -140,10 +139,14 @@ def set_metadata(patterns:List[str],phone_preset:str) -> int:
     sorted_files = sorted(list(file_paths))
     phone_base = asdict(PRESETS[phone_preset])
 
+    
     with exiftool.ExifToolHelper() as et:
         base_time = datetime.now() - timedelta(minutes=len(sorted_files) * 2)
         
         for p in sorted_files:
+
+            with Image.open(p) as img:
+                width,height = img.size
             
             existing_meta = et.get_tags(str(p), tags=["EXIF:DateTimeOriginal"])
             existing_time = existing_meta[0].get("EXIF:DateTimeOriginal") if existing_meta else None
@@ -156,6 +159,7 @@ def set_metadata(patterns:List[str],phone_preset:str) -> int:
 
             file_tags = phone_base.copy()
             file_tags.update(generate_random_shot_data(shot_time))
+            file_tags["Orientation"] = 1 if height > width else 6
             formatted_tags = {
                 (k if k.startswith("EXIF:") else f"EXIF:{k}"): v 
                 for k, v in file_tags.items()}
@@ -167,6 +171,8 @@ def set_metadata(patterns:List[str],phone_preset:str) -> int:
                     "-P", 
                     "-overwrite_original", 
                     "-jfif:all=", 
+                    "-jumbf:all=",
+                    "-c2pa:all=",
                     "-xmp:all=", 
                     "-XMPToolkit=",      
                     "-exifbyteorder=ii"
@@ -178,4 +184,4 @@ load_presets()
 
 
 if __name__ == '__main__':
-    set_metadata(['./test.jpg'],'S24')
+    set_metadata(['./002.jpg'],'S24')
