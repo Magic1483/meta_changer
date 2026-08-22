@@ -1,16 +1,27 @@
 [project]
 name = "meta_changer"
-version = "0.1.6"
-description = "CLI tool to change EXIF metadata via MCP"
+version = "0.2.0"
+description = "CLI tool to change EXIF metadata via MCP or Telegram"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "mcp[cli]>=2.0.0",
+    "pillow>=12.3.0",
     "pyexiftool>=0.5.6",
 ]
 
+[project.optional-dependencies]
+mcp = [
+    "mcp[cli]>=2.0.0",
+]
+
+tg_bot = [
+    "aiogram>=3.30.0",
+    "python-dotenv>=1.0.0",
+]
+
 [project.scripts]
-meta-changer = "meta_changer.__main__:main"
+meta-changer-mcp = "meta_changer.__main__:main"
+meta-changer-tg = "meta_changer.tg_bot.main:main"
 
 [build-system]
 requires = ["setuptools >=68", "wheel"]

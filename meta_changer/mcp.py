@@ -17,7 +17,12 @@ def SetMetadata(file_paths:List[str],phone_preset:str):
 
 @mcp.tool()
 def AddPresets(presets: Dict[str, Phone]) -> str:
-    """Register multiple camera metadata presets in bulk."""
+    """
+    Register multiple camera metadata presets in bulk.
+    Process files matching specific paths or glob patterns 
+    (e.g. ['src/*.py', 'config.json']).
+    """
+    
     try:
         # Convert dictionary inputs to Phone dataclass instances if needed
         proc_presets = {

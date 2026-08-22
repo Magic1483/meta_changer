@@ -1,13 +1,13 @@
-import asyncio
 from pathlib import Path
 from typing import Dict, List
 
 import exiftool
-from dataclasses import  astuple, dataclass
+from dataclasses import  asdict, astuple, dataclass
 from csv import DictReader
 from importlib import resources
 import csv,os,shutil
-
+import glob
+from PIL import Image
 
 if os.name == "nt":
     CONFIG_DIR = Path(os.getenv("APPDATA")) / "meta_changer"
@@ -35,6 +35,8 @@ if not CSV_PATH.exists():
     default_csv = str(resources.files(__package__) / "presets.csv")
     shutil.copyfile(default_csv,CSV_PATH)
 
+
+# PRESETS
 def load_presets():
     global PRESETS
     with CSV_PATH.open('r',encoding="utf-8") as f:
@@ -75,27 +77,48 @@ def set_presets(presets:Dict[str,Phone]):
         writer.writerow(fieldnames)
     add_presets(presets)
 
-def set_metadata(file_paths:List[str],phone_preset:str) -> None:
+def png_to_jpg(file_paths:List[str]) -> int:
+    processed = 0
+    for fp in file_paths:
+        path = Path(fp)
+        if not (path.exists() and path.suffix.lower() == '.png'):
+            continue
+        
+        try:
+            with Image.open(path,'r',formats=None) as img:
+                img.convert('RGB').save(path.with_suffix('.jpg'))
+                processed += 1
+        except Exception: 
+            continue
+
+    return processed
+
+
+def set_metadata(patterns:List[str],phone_preset:str) -> int:
+    """Return count of processed files"""
     global PRESETS
 
     if phone_preset not in PRESETS:
         raise ValueError(f'Phone {phone_preset} not found in presets')
     
-    resolved_paths = []
-    for fp in file_paths:
-        p = Path(fp).resolve()
-        if not p.exists():
-            raise FileNotFoundError(f"Target image file does not exist: {p}")
-        resolved_paths.append(str(p))
-        
-    phone = PRESETS[phone_preset]
+    file_paths: set[Path] = set()
+    for pattern in patterns:
+        for m in  glob.glob(pattern,recursive=True):
+            p = Path(m)
+            if p.is_file():
+                file_paths.add(p.resolve())
     
+    if not file_paths:
+        return 0
+    
+    phone = PRESETS[phone_preset]
     with exiftool.ExifToolHelper() as et:
         et.set_tags(
-            files=file_paths,
-            tags=phone.__dict__,
+            files=[str(p) for p in file_paths],
+            tags=asdict(phone),
             params=["-P","-overwrite_original"]
             )
+    return len(file_paths)
 
 load_presets()
 
