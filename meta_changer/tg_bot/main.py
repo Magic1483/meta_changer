@@ -9,7 +9,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart,Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import FSInputFile, KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from aiogram.fsm.state import State,StatesGroup
 from pathlib import Path
 from ..core import *
@@ -24,7 +24,7 @@ DOWNLOAD_DIR = Path("files")
 USER_LOCKS:defaultdict[str,asyncio.Lock] = defaultdict(asyncio.Lock)
 
 dp = Dispatcher()
-BOT:Bot  = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+BOT:Bot  = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN_V2))
 
 class BotState(StatesGroup):
     wait_for_preset = State()
@@ -37,19 +37,21 @@ async def command_start_handler(msg: Message) -> None:
 @dp.message(Command('preset'))
 async def cmd_set_preset(msg:Message,state:FSMContext):
     await state.set_state(BotState.wait_for_preset)
-    kb = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text=txt) for txt in get_presets()]
-        ],
-        resize_keyboard=True)
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=txt,callback_data=f"preset:{txt}")]
+            for txt in get_presets()
+        ])
     await msg.answer('Select preset:',reply_markup=kb)
 
-@dp.message(BotState.wait_for_preset)
-async def process_preset(msg: Message, state: FSMContext):
-    await state.update_data(preset=msg.text)
+@dp.message(BotState.wait_for_preset, F.data.startswith("preset:"))
+async def process_preset(callback:CallbackQuery, state: FSMContext):
+    val = callback.data.split(":", 1)[1]
+
+    await state.update_data(preset=val)
     await state.set_state(BotState.upload_archive)
-    await msg.answer(f"Upload zip archive with .jpg images", 
-                     reply_markup=ReplyKeyboardRemove())
+    await callback.message.edit_text(
+        f"Selected preset: {val}\nUpload zip archive with .jpg images:")
 
 @dp.message(BotState.upload_archive , F.document)
 async def cmd_download_arch(msg:Message,state:FSMContext):
