@@ -33,8 +33,10 @@ class BotState(StatesGroup):
 @dp.message(CommandStart())
 async def command_start_handler(msg: Message) -> None:
     await msg.answer(
-        "Send flat zip file with .jpg images after picking a preset with /preset."
-        )
+        "Send a flat zip file with .jpg images "
+        "after picking a preset:\n"
+        "/preset"
+    )
 
 @dp.message(Command('preset'))
 async def cmd_set_preset(msg:Message,state:FSMContext):
