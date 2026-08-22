@@ -8,6 +8,7 @@ from importlib import resources
 import csv,os,shutil
 import glob
 from PIL import Image
+import random
 
 if os.name == "nt":
     CONFIG_DIR = Path(os.getenv("APPDATA")) / "meta_changer"
@@ -93,6 +94,16 @@ def png_to_jpg(file_paths:List[str]) -> int:
 
     return processed
 
+def generate_random_shot_data() -> dict:
+    return {
+        "ISO": random.choice([50, 64, 80, 100, 125, 160, 200]),
+        "ExposureTime": random.choice(["1/60", "1/120", "1/250", "1/500", "1/1000"]),
+        "ExposureBiasValue": random.choice([0, 0, 0, -0.33, 0.33]),
+        "SubSecTimeOriginal": f"{random.randint(0, 999):03d}",
+        "SubSecTimeDigitized": f"{random.randint(0, 999):03d}",
+        # "DateTimeOriginal": base_time.strftime("%Y:%m:%d %H:%M:%S"),
+        "BrightnessValue": round(random.uniform(2.0, 6.5), 2),
+    }
 
 def set_metadata(patterns:List[str],phone_preset:str) -> int:
     """Return count of processed files"""
@@ -112,10 +123,12 @@ def set_metadata(patterns:List[str],phone_preset:str) -> int:
         return 0
     
     phone = PRESETS[phone_preset]
+    params = asdict(phone)
+    params.update(generate_random_shot_data())
     with exiftool.ExifToolHelper() as et:
         et.set_tags(
             files=[str(p) for p in file_paths],
-            tags=asdict(phone),
+            tags=params,
             params=["-P","-overwrite_original"]
             )
     return len(file_paths)
