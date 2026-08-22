@@ -44,7 +44,7 @@ async def cmd_set_preset(msg:Message,state:FSMContext):
         ])
     await msg.answer('Select preset:',reply_markup=kb)
 
-@dp.message(BotState.wait_for_preset, F.data.startswith("preset:"))
+@dp.callback_query(BotState.wait_for_preset, F.data.startswith("preset:"))
 async def process_preset(callback:CallbackQuery, state: FSMContext):
     val = callback.data.split(":", 1)[1]
 
